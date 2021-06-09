@@ -1,7 +1,6 @@
 // ============================================================================
 // fs.c - user FileSytem API
 // ============================================================================
-
 #include "bfs.h"
 #include "fs.h"
 
@@ -83,13 +82,49 @@ i32 fsOpen(str fname) {
 // read (may be less than 'numb' if we hit EOF).  On failure, abort
 // ============================================================================
 i32 fsRead(i32 fd, i32 numb, void* buf) {
+  // if not fail, read from fd numb number of times then put into buff
+  // i32 bfsFdToInum(i32 fd);
+  i32 inum = bfsFdToInum(fd);
+  i32 fbn = 0;
 
-  // ++++++++++++++++++++++++
-  // Insert your code here
-  // ++++++++++++++++++++++++
+  i32 ofte = bfsFindOFTE(inum);
+  i32 cursor = g_oft[ofte].curs;
 
-  FATAL(ENYI);                                  // Not Yet Implemented!
-  return 0;
+  while(cursor >= BYTESPERBLOCK) {
+    cursor = cursor - BYTESPERBLOCK;
+    fbn++;
+  }
+
+  i8 block[BYTESPERBLOCK];
+  bfsRead(inum, fbn, block);
+
+  Inode inode; 
+  bfsReadInode(inum, &inode);
+  i32 file_size = inode.size;
+
+  i8 *temp_buf = buf;
+  i32 count = 0;
+
+  while (numb > 0) {
+    i32 i_min = BYTESPERBLOCK;
+    if (cursor + numb < i_min) {
+      i_min = cursor + numb;
+    }
+    for (int i = cursor; i < i_min; i++) {
+      temp_buf[count] = block[i];
+      g_oft[ofte].curs++;
+      count++;
+      numb--;
+      if (g_oft[ofte].curs >= file_size) {
+        return count;
+      }
+    } 
+    if (numb > 0) {
+      bfsRead(inum, ++fbn, block);
+      cursor = 0;
+    }
+  }
+  return count;
 }
 
 
@@ -157,10 +192,51 @@ i32 fsSize(i32 fd) {
 // destination file.  On success, return 0.  On failure, abort
 // ============================================================================
 i32 fsWrite(i32 fd, i32 numb, void* buf) {
+  i32 inum = bfsFdToInum(fd);
+  i32 fbn = 0;
 
-  // ++++++++++++++++++++++++
-  // Insert your code here
-  // ++++++++++++++++++++++++
+  i32 ofte = bfsFindOFTE(inum);
+  i32 cursor = g_oft[ofte].curs;
+
+  // find which fileblock curosr is in
+  while(cursor >= BYTESPERBLOCK) { 
+    cursor = cursor - BYTESPERBLOCK;
+    fbn++;
+  }
+
+  i8 block[BYTESPERBLOCK];
+  bfsRead(inum, fbn, block);
+
+  Inode inode; 
+  bfsReadInode(inum, &inode);
+  i32 file_size = inode.size;
+
+  i8 *temp_buf = buf;
+  i32 count = 0;
+
+  while (numb > 0) {
+    i32 i_min = BYTESPERBLOCK;
+    if (cursor + numb < i_min) {
+      i_min = cursor + numb;
+    }
+    for (int i = cursor; i < i_min; i++) {
+      block[i] = temp_buf[count];
+      g_oft[ofte].curs++;
+      count++;
+      numb--;
+      if (g_oft[ofte].curs >= file_size) {
+        return count;
+      }
+    } 
+    i32 dbn = bfsFbnToDbn(inum, fbn);
+    bioWrite(dbn, block);
+    if (numb > 0) {
+      bfsRead(inum, ++fbn, block);
+      cursor = 0;
+    }
+  }
+  return count;
+
 
   FATAL(ENYI);                                  // Not Yet Implemented!
   return 0;
