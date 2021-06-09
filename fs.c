@@ -236,8 +236,4 @@ i32 fsWrite(i32 fd, i32 numb, void* buf) {
     }
   }
   return count;
-
-
-  FATAL(ENYI);                                  // Not Yet Implemented!
-  return 0;
 }
